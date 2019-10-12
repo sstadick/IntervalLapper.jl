@@ -37,10 +37,11 @@ end
 
 @testset "Query Stop Interval Start" begin
 	lapper = setup_nonoverlapping()
+	bits = IL.Bits(lapper.intervals)
 	cursor = Ref(1)
 	@test nothing == Base.iterate(IL.find(lapper, 30, 35))
 	@test nothing == Base.iterate(IL.seek(lapper, 30, 35, cursor))
-	# @test nothing == length(collect(IL.find(lapper, 30, 35)))
+	@test IL.count(bits, 30, 35) == length(collect(IL.find(lapper, 30, 35)))
 end
 
 # Test that a query that overlaps the start of an interval returns that interval
@@ -50,6 +51,8 @@ end
 	expected = Iv(20, 30, 0)
 	@test expected == Base.iterate(IL.find(lapper, 15, 25))[1]
 	@test expected == Base.iterate(IL.seek(lapper, 15, 25, cursor))[1]
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 15, 25) == length(collect(IL.find(lapper, 15, 25)))
 end
 
 # Test that a query that overlaps the stop of an interval returns that interval
@@ -59,6 +62,8 @@ end
 	expected = Iv(20, 30, 0)
 	@test expected == Base.iterate(IL.find(lapper, 25, 35))[1]
 	@test expected == Base.iterate(IL.seek(lapper, 25, 35, cursor))[1]
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 25, 35) == length(collect(IL.find(lapper, 25, 35)))
 end
 
 # Test that a query that is enveloped by interval returns interval<Paste>
@@ -68,6 +73,8 @@ end
 	expected = Iv(20, 30, 0)
 	@test expected == Base.iterate(IL.find(lapper, 22, 27))[1]
 	@test expected == Base.iterate(IL.seek(lapper, 22, 27, cursor))[1]
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 22, 27) == length(collect(IL.find(lapper, 22, 27)))
 end
 
 # Test that a query that envolops an interval returns that interval
@@ -77,6 +84,8 @@ end
 	expected = Iv(20, 30, 0)
 	@test expected == Base.iterate(IL.find(lapper, 15, 35))[1]
 	@test expected == Base.iterate(IL.seek(lapper, 15, 35, cursor))[1]
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 15, 35) == length(collect(IL.find(lapper, 15, 35)))
 end
 
 @testset "Overlapping Intervals" begin
@@ -88,6 +97,8 @@ end
 	@test [e1, e2] == collect(IL.find(lapper, 8, 20))
 	@test [e1, e2] == collect(IL.seek(lapper, 8, 20, cursor))
 	@test 2 == length(collect(IL.find(lapper, 8, 20)))
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 8, 20) == length(collect(IL.find(lapper, 8, 20)))
 end
 
 @testset "Merge Overlaps" begin
@@ -213,6 +224,9 @@ end
             Iv( 9,  11,  0),
             Iv( 10,  13,  0),
         ]
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 8, 11) == length(collect(IL.find(lapper, 8, 11)))
+
 	cursor = Ref(1)
 	found = collect(IL.seek(lapper, 8, 11, cursor))
         @test found == [
@@ -227,6 +241,8 @@ end
             Iv( 111,  160,  0),
             Iv( 150,  200,  0),
         ]
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 145, 151) == length(collect(IL.find(lapper, 145, 151)))
 
 	cursor = Ref(1)
 	found = collect(IL.seek(lapper, 145, 151, cursor))
@@ -341,6 +357,8 @@ end
 	@test found == [
             Iv(28866309,  33141404	,  0),
         ]
+	bits = IL.Bits(lapper.intervals)
+	@test IL.count(bits, 28974798, 33141355) == length(collect(IL.find(lapper, 28974798, 33141355)))
 end
 
 

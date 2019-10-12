@@ -2,6 +2,7 @@ module IntervalLapper
 
 export Interval, overlap, intersect
 export Lapper, find, seek, lower_bound, merge_overlaps!, coverage, union_and_intersect
+export Bits, count
 
 """
 Represents an interval of (start, stop] with a label val.
@@ -288,6 +289,55 @@ function Base.iterate(iter::DepthIter, (curr_merged_pos, curr_pos, cursor)=(1, 1
 		new_depth_at_point = tmp
 	end
 	return (Interval(start, curr_merged_pos, depth_at_point), (curr_merged_pos, curr_pos, cursor))
+end
+
+
+"""
+A data structure for counting all intervals that overlap start .. stop. It is very fast.
+Two binary searches are performed to fina all the excluded elements, then the intersections
+can be deduced from there. See [BITS](https://arxiv.org/pdf/1208.3407.pdf) for more info.
+"""
+struct Bits
+	starts::Vector{Int}
+	stops::Vector{Int}
+end
+
+@inline unzip(a) = map(x -> getfield.(a, x), fieldnames(eltype(a)))
+
+function Bits(intervals::Vector{Interval{T}}) where T
+	starts, stops = unzip(map( x -> (x.start, x.stop), intervals))
+	Bits(sort!(starts), sort!(stops))
+end
+
+@inline function bsearch_seq(key::Int, elems::Vector{Int})
+    if elems[1] > key
+        return 1
+    end
+
+    high = length(elems) + 1
+    low = 1
+
+    while high - low > 1
+        mid = div(high + low, 2)
+        if elems[mid] < key
+            low = mid
+        else
+            high = mid
+        end
+    end
+    high
+end
+
+function count(bits::Bits, start::Int, stop::Int)
+	len = length(bits.starts)
+	first = bsearch_seq(start, bits.stops)
+	last = bsearch_seq(stop, bits.starts)
+	while first <= len && bits.stops[first] == start
+		first += 1
+	end
+	
+	num_cant_after = len - last
+	len - first - num_cant_after
 end
 
 end # module
