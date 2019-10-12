@@ -189,3 +189,160 @@ end
 	end
 end
 
+@testset "Find Overlaps In Large Intervals" begin
+        data1 = [
+            Iv( 0,  8,  0),
+            Iv( 1,  10,  0), 
+            Iv( 2,  5,  0), 
+            Iv( 3,  8,  0),
+            Iv( 4,  7,  0),
+            Iv( 5,  8,  0),
+            Iv( 8,  8,  0),
+            Iv( 9,  11,  0),
+            Iv( 10,  13,  0),
+            Iv( 100,  200,  0),
+            Iv( 110,  120,  0),
+            Iv( 110,  124,  0),
+            Iv( 111,  160,  0),
+            Iv( 150,  200,  0),
+        ]
+        lapper = IL.Lapper(data1);
+	found = collect(IL.find(lapper, 8, 11))
+        @test found == [
+            Iv( 1,  10,  0), 
+            Iv( 9,  11,  0),
+            Iv( 10,  13,  0),
+        ]
+	cursor = Ref(1)
+	found = collect(IL.seek(lapper, 8, 11, cursor))
+        @test found == [
+            Iv( 1,  10,  0), 
+            Iv( 9,  11,  0),
+            Iv( 10,  13,  0),
+        ]
+	
+	found = collect(IL.find(lapper, 145, 151))
+	@test found == [
+            Iv( 100,  200,  0),
+            Iv( 111,  160,  0),
+            Iv( 150,  200,  0),
+        ]
+
+	cursor = Ref(1)
+	found = collect(IL.seek(lapper, 145, 151, cursor))
+	@test found == [
+            Iv( 100,  200,  0),
+            Iv( 111,  160,  0),
+            Iv( 150,  200,  0),
+        ]
+end
+
+
+@testset "Depth Sanity" begin
+        data1 = [
+            Iv( 0,  10,  0),
+            Iv( 5,  10,  0)
+        ]
+        lapper = IL.Lapper(data1);
+	found = collect(IL.depth(lapper))
+        @test found == [
+                   IL.Interval( 0,  5,  1),
+                   IL.Interval( 5,  10,  2)
+        ]
+end
+
+@testset "Depth Harder" begin
+	data1 = [
+            Iv( 1,  10,  0),
+            Iv( 2,  5,  0),
+            Iv( 3,  8,  0),
+            Iv( 3,  8,  0),
+            Iv( 3,  8,  0),
+            Iv( 5,  8,  0),
+            Iv( 9,  11,  0),
+            Iv( 15,  20,  0),
+        ]
+        lapper = IL.Lapper(data1);
+	found = collect(IL.depth(lapper))
+        @test found == [
+                   IL.Interval( 1,  2,  1),
+                   IL.Interval( 2,  3,  2),
+                   IL.Interval( 3,  8,  5),
+                   IL.Interval( 8,  9,  1),
+                   IL.Interval( 9,  10,  2),
+                   IL.Interval( 10,  11,  1),
+                   IL.Interval( 15,  20,  1),
+        ]
+end
+
+@testset "Depth Hard" begin
+        data1 = [
+            Iv( 1,  10,  0),
+            Iv( 2,  5,  0),
+            Iv( 3,  8,  0),
+            Iv( 3,  8,  0),
+            Iv( 3,  8,  0),
+            Iv( 5,  8,  0),
+            Iv( 9,  11,  0),
+        ]
+        lapper = IL.Lapper(data1);
+	found = collect(IL.depth(lapper))
+        @test found == [
+                   IL.Interval( 1,  2,  1),
+                   IL.Interval( 2,  3,  2),
+                   IL.Interval( 3,  8,  5),
+                   IL.Interval( 8,  9,  1),
+                   IL.Interval( 9,  10,  2),
+                   IL.Interval( 10,  11,  1),
+        ]
+end
+
+#=
+# Bug tests - these are tests that came from real life
+=#
+
+# Test that it's not possible to induce index out of bounds by pushing the
+# cursor past the end of the lapper
+@testset "Seek Over Len" begin
+	lapper = setup_nonoverlapping();
+	single = setup_single();
+	cursor = Ref(1)
+	count = 0
+	for interval in lapper.intervals
+		for o_interval in IL.seek(single, interval.start, interval.stop, cursor)
+			count += 1
+		end
+	end
+end
+
+# Test that if lower_bound puts us before the first match, we still return match
+@testset "Find Over Behind First Match" begin
+        lapper = setup_badlapper();
+	e1 = Iv( 50,  55,  0)
+	found = Base.iterate(IL.find(lapper, 50, 55))[1];
+        @test found == e1
+end
+
+# When there is a very long interval that spans many little intervals, test that the
+# little intervals still get returned properly
+@testset "Bad Skips" begin
+        data = [
+            Iv(25264912,  25264986,  0),	
+            Iv(27273024,  27273065	,  0),
+            Iv(27440273,  27440318	,  0),
+            Iv(27488033,  27488125	,  0),
+            Iv(27938410,  27938470	,  0),
+            Iv(27959118,  27959171	,  0),
+            Iv(28866309,  33141404	,  0),
+        ]
+        lapper = IL.Lapper(data)
+
+	found = collect(IL.find(lapper, 28974798, 33141355))
+	@test found == [
+            Iv(28866309,  33141404	,  0),
+        ]
+end
+
+
+
+

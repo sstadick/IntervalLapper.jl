@@ -68,7 +68,7 @@ function Lapper(intervals::Vector{Interval{T}}) where T
 end
 
 function lower_bound(start::Int, intervals::Vector{Interval{T}}) where T
-	size = length(intervals) + 1
+	size = length(intervals)
 	low = 1
 
 	@inbounds while size > 1
@@ -179,6 +179,7 @@ function union_and_intersect(self::Lapper{T}, other::Lapper{T}, self_cov::Union{
 	end
 end
 
+
 #=
 #
 # Find Iterator / Seek Iterator
@@ -233,5 +234,60 @@ end
 
 Base.iterate(iter::SeekIter, offset=iter.cursor[]) = _find(iter, offset)
 Base.IteratorSize(::SeekIter) = Base.SizeUnknown()
+
+#=
+# Depth Iterator
+=#
+
+struct DepthIter
+	inner::Lapper
+	# Lapper that is merged lapper of the inner
+	merged::Lapper{Bool}
+	merged_len::Int
+end
+
+"""
+Return the contiguous intervals of coverage, `val` represents the number of intervals
+covering the returned interval.
+"""
+function depth(lapper::Lapper)
+	merged_lapper = Lapper(collect(map(x -> Interval(x.start, x.stop, true), lapper.intervals)))
+	merge_overlaps!(merged_lapper)
+	merged_len = length(merged_lapper.intervals)
+	DepthIter(lapper, merged_lapper, merged_len)
+end
+Base.IteratorSize(::DepthIter) = Base.SizeUnknown()
+
+function Base.iterate(iter::DepthIter, (curr_merged_pos, curr_pos, cursor)=(1, 1, Ref(1)))
+	interval = iter.merged.intervals[curr_pos]
+	if curr_merged_pos == 1
+		curr_merged_pos = interval.start
+	end
+	if interval.stop == curr_merged_pos
+		if curr_pos + 1 <= iter.merged_len
+			curr_pos += 1
+			interval = iter.merged.intervals[curr_pos]
+			curr_merged_pos = interval.start
+		else
+			return nothing
+		end
+	end
+	start = curr_merged_pos
+	depth_at_point = 0
+	for _ in seek(iter.inner, curr_merged_pos, curr_merged_pos + 1, cursor)
+		depth_at_point += 1
+	end
+	new_depth_at_point = depth_at_point
+	while new_depth_at_point == depth_at_point && curr_merged_pos < interval.stop
+		curr_merged_pos += 1
+
+		tmp = 0
+		for _ in seek(iter.inner, curr_merged_pos, curr_merged_pos + 1, cursor)
+			tmp += 1
+		end
+		new_depth_at_point = tmp
+	end
+	return (Interval(start, curr_merged_pos, depth_at_point), (curr_merged_pos, curr_pos, cursor))
+end
 
 end # module
