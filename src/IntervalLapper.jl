@@ -134,7 +134,7 @@ function coverage(lapper::Lapper{T}) where T
 			moving_stop = interval.stop
 		end
 	end
-	cov += moving_stop - moving_stop
+	cov += moving_stop - moving_start
 	cov
 end
 
@@ -203,10 +203,10 @@ struct SeekIter{T}
 	cursor::Ref{Int}
 end
 
-@inline function _find(iter::Union{FindIter, SeekIter}, offset::Ref{Int})
-    while offset[] < length(iter.inner.intervals)
-	interval = iter.inner.intervals[offset[]]
-	offset[] += 1
+@inline function _find(iter::Union{FindIter, SeekIter}, offset::Int)
+    while offset <= length(iter.inner.intervals)
+	interval = iter.inner.intervals[offset]
+	offset += 1
         if overlap(interval, iter.start, iter.stop)
 	    return (interval, offset)
         elseif interval.start >= iter.stop
@@ -217,11 +217,11 @@ end
 end
 
 find(lapper::Lapper{T}, start::Int, stop::Int) where T = FindIter(lapper, start, stop)
-Base.iterate(iter::FindIter, offset=Ref(lower_bound(checked_sub(iter.start, iter.inner.max_len), iter.inner.intervals))) = _find(iter, offset)
+Base.iterate(iter::FindIter, offset=lower_bound(checked_sub(iter.start, iter.inner.max_len), iter.inner.intervals)) = _find(iter, offset)
 Base.IteratorSize(::FindIter) = Base.SizeUnknown()
 
 function seek(lapper::Lapper{T}, start::Int, stop::Int, cursor::Ref{Int}) where T
-	if cursor[] <= 1 || (cursor[] < length(lapper.intervals) && lapper.intervals[cursor[]].start > start)
+	if cursor[] <= 1 || (cursor[] <= length(lapper.intervals) && lapper.intervals[cursor[]].start > start)
 		cursor[] = lower_bound(checked_sub(start, lapper.max_len), lapper.intervals)
 	end
 	
@@ -231,7 +231,7 @@ function seek(lapper::Lapper{T}, start::Int, stop::Int, cursor::Ref{Int}) where 
 	SeekIter(lapper, start, stop, cursor)
 end
 
-Base.iterate(iter::SeekIter, offset=iter.cursor) = _find(iter, offset)
+Base.iterate(iter::SeekIter, offset=iter.cursor[]) = _find(iter, offset)
 Base.IteratorSize(::SeekIter) = Base.SizeUnknown()
 
 end # module

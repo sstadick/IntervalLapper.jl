@@ -112,7 +112,7 @@ end
 
 	lapper = setup_nonoverlapping()
 	coverage = IL.coverage(lapper)
-	@test coverage == 50
+	@test coverage == 60
 end
 
 @testset "Interval Intersections" begin
@@ -157,23 +157,35 @@ end
 	lapper2 = IL.Lapper(data2)
 
 	# Should be the same either way it's calculated
-	union, intersect = IL.union_and_intersect(lapper1, lapper2)
-	@test intersect == 10
-	@test union == 73
-	union, intersect = IL.union_and_intersect(lapper2, lapper1)
-	@test intersect == 10
-	@test union == 73
-	IL.merge_overlaps!(lapper1)
-	IL.merge_overlaps!(lapper2)
-	cov1 = IL.coverage(lapper1)
-	cov2 = IL.coverage(lapper2)
+	@testset "Non-merged-lappers" begin
+		@testset "Lapper1 vs Lapper2" begin
+			union, intersect = IL.union_and_intersect(lapper1, lapper2)
+			@test intersect == 10
+			@test union == 73
+		end
+		@testset "Lapper2 vs Lapper1" begin
+			union, intersect = IL.union_and_intersect(lapper2, lapper1)
+			@test intersect == 10
+			@test union == 73
+		end
+	end
 
 	# Should still be the same
-	union, intersect = IL.union_and_intersect(lapper1, lapper2, cov1, cov2)
-	@test intersect == 10
-	@test union == 73
-	union, intersect = IL.union_and_intersect(lapper2, lapper1, cov2, cov1)
-	@test intersect == 10
-	@test union == 73
+	@testset "Merged-Lappers" begin
+		IL.merge_overlaps!(lapper1)
+		IL.merge_overlaps!(lapper2)
+		cov1 = IL.coverage(lapper1)
+		cov2 = IL.coverage(lapper2)
+		@testset "Lapper1 vs Lapper2" begin
+			union, intersect = IL.union_and_intersect(lapper1, lapper2, cov1, cov2)
+			@test intersect == 10
+			@test union == 73
+		end
+		@testset "Lapper2 vs Lapper1" begin
+			union, intersect = IL.union_and_intersect(lapper2, lapper1, cov2, cov1)
+			@test intersect == 10
+			@test union == 73
+		end
+	end
 end
 
